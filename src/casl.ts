@@ -4,7 +4,7 @@ import {
   InferSubjects,
   createMongoAbility,
 } from '@casl/ability';
-import { User } from 'src/user/entities/user.model';
+import { User } from 'src/auth/entities/user.entity';
 import { Rating } from './movie/entities/rating.entity';
 
 export enum Action {

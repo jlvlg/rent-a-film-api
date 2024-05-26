@@ -9,12 +9,18 @@ export class Movie {
   @Column()
   title: string;
 
-  @Column()
+  @Column({ nullable: true })
   overview: string;
+
+  @Column({ nullable: true })
+  poster_path: string;
+
+  @Column({ nullable: true })
+  backdrop_path: string;
 
   @Column()
   release_date: Date;
 
-  @OneToMany(() => Rating, (rating) => rating.movie)
+  @OneToMany(() => Rating, (rating) => rating.movie, { cascade: true })
   ratings: Rating[];
 }
