@@ -1,8 +1,12 @@
-import { Body, Controller, Param, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { User } from 'src/auth/entities/user.entity';
 import { GetUser } from 'src/auth/get-user.decorator';
 import { Action } from 'src/casl';
-import { PolicyPatch, PolicyPost } from 'src/policies-guard/access.decorator';
+import {
+  PolicyGet,
+  PolicyPatch,
+  PolicyPost,
+} from 'src/policies-guard/access.decorator';
 import { Policies } from 'src/policies-guard/policies.decorator';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
@@ -13,6 +17,20 @@ import { MovieService } from './movie.service';
 @Controller('movies')
 export class MovieController {
   constructor(private readonly movieService: MovieService) {}
+
+  @PolicyGet(Movie)
+  getOneById(@Query('id') id: string, @GetUser() user: User) {
+    return this.movieService.getOneById(id, user);
+  }
+
+  @PolicyGet(Movie, 'paged')
+  getPaged(
+    @Query('page', ParseIntPipe) page: number,
+    @Query('col') col: string,
+  ) {
+    return this.movieService.getPaged(page, col);
+  }
+
   @PolicyPost(Movie)
   create(@Body() createMovieDto: CreateMovieDto) {
     return this.movieService.create(createMovieDto);
@@ -24,10 +42,9 @@ export class MovieController {
     return this.movieService.update(id, updateMovieDto);
   }
 
-  @PolicyPost(Movie, ':id/rate')
-  @Policies((ability) => ability.can(Action.CREATE, Rating))
+  @PolicyPost(Rating, ':id/rate')
   rate(
-    @Param(':id') id: string,
+    @Param('id') id: string,
     @Body('rating', ParseIntPipe) rating: number,
     @GetUser() user: User,
   ) {

@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/auth/entities/user.entity';
-import { DataSource, FindOptionsWhere, Repository } from 'typeorm';
+import { DataSource, FindOneOptions, Repository } from 'typeorm';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { Movie } from './entities/movie.entity';
@@ -15,8 +19,25 @@ export class MovieService {
     private readonly dataSource: DataSource,
   ) {}
 
-  findOneBy(where: FindOptionsWhere<Movie>) {
-    const movie = this.movieRepo.findOneBy(where);
+  async getOneById(id: string, user: User) {
+    const movie = await this.findOne({ where: { id } });
+    const rating = await this.ratingRepo.findOneBy({ movie, user });
+    await this.movieRepo.increment({ id }, 'views', 1);
+    return { movie: movie, user_rating: rating.rating };
+  }
+
+  getPaged(page: number, col) {
+    if (!(col in ['average_rating', 'views', 'release_date']))
+      throw new BadRequestException();
+    return this.movieRepo.find({
+      order: { [col]: 'DESC' },
+      skip: page * 20,
+      take: 20,
+    });
+  }
+
+  async findOne(options: FindOneOptions<Movie>, repo?: Repository<Movie>) {
+    const movie = await (repo || this.movieRepo).findOne(options);
     if (!movie) throw new NotFoundException();
     return movie;
   }
@@ -29,22 +50,37 @@ export class MovieService {
     });
   }
 
-  update(id: string, updateMovieDto: UpdateMovieDto) {
+  async update(id: string, updateMovieDto: UpdateMovieDto) {
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.withRepository(this.movieRepo);
-      const movie = { ...(await this.findOneBy({ id })), ...updateMovieDto };
+      const movie = {
+        ...(await this.findOne({ where: { id } }, repo)),
+        ...updateMovieDto,
+      };
       return repo.save(movie);
     });
   }
 
-  rate(id: string, rating: number, user: User) {
+  async rate(id: string, rating: number, user: User) {
+    if (rating < 0 || rating > 10)
+      throw new BadRequestException('Rating must be a number between 0 and 10');
+
     return this.dataSource.transaction(async (manager) => {
-      const repo = manager.withRepository(this.ratingRepo);
-      const movie = await this.findOneBy({ id });
-      let instance = await repo.findOneBy({ movie, user });
-      if (!instance) instance = await repo.create({ movie, user });
-      instance.rating = rating;
-      return await repo.save(instance);
+      const ratingRepo = manager.withRepository(this.ratingRepo);
+      const movieRepo = manager.withRepository(this.movieRepo);
+      const movie = await this.findOne(
+        { where: { id }, relations: { ratings: true } },
+        movieRepo,
+      );
+      const ratings = movie.ratings;
+      const index = ratings.findIndex(
+        (x) => x.movie.id === id && x.user.id === user.id,
+      );
+      if (index === -1) ratings.push(ratingRepo.create({ movie, user }));
+      ratings[index === -1 ? ratings.length - 1 : index].rating = rating;
+      movie.average_rating =
+        ratings.reduce((a, b) => a + b.rating, 0) / ratings.length;
+      return await movieRepo.save(movie);
     });
   }
 }
