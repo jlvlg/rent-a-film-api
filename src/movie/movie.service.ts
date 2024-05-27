@@ -94,4 +94,8 @@ export class MovieService {
       return await movieRepo.save(movie);
     });
   }
+
+  async deleteMovie(id: string) {
+    await this.movieRepo.delete({ id });
+  }
 }

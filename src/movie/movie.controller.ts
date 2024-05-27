@@ -15,6 +15,7 @@ import { Action } from 'src/casl';
 import { Order } from 'src/order/entities/order.entity';
 import { OrderService } from 'src/order/order.service';
 import {
+  PolicyDelete,
   PolicyGet,
   PolicyPatch,
   PolicyPost,
@@ -71,5 +72,10 @@ export class MovieController {
   @PolicyGet(Order, 'can_watch')
   canWatchMovie(@Query('id') id: string, @GetUser() user: User) {
     return this.orderService.canWatchMovie(id, user);
+  }
+
+  @PolicyDelete(Movie, 'delete/:id')
+  deleteMovie(@Param(':id') id: string) {
+    this.movieService.deleteMovie(id);
   }
 }
