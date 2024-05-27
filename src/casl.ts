@@ -6,6 +6,7 @@ import {
 } from '@casl/ability';
 import { User } from 'src/auth/entities/user.entity';
 import { Rating } from './movie/entities/rating.entity';
+import { Order } from './order/entities/order.entity';
 
 export enum Action {
   MANAGE = 'manage',
@@ -29,6 +30,7 @@ export default function defineUserAbilities(user: User) {
   }
 
   can(Action.CREATE, Rating);
+  can(Action.CREATE, Order);
 
   return build({
     detectSubjectType: (item) =>

@@ -5,8 +5,15 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/auth/entities/user.entity';
-import { DataSource, FindOneOptions, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  FindManyOptions,
+  FindOneOptions,
+  Repository,
+} from 'typeorm';
 import { CreateMovieDto } from './dto/create-movie.dto';
+import { PagedMovies } from './dto/paged-movies.enum';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { Movie } from './entities/movie.entity';
 import { Rating } from './entities/rating.entity';
@@ -23,12 +30,10 @@ export class MovieService {
     const movie = await this.findOne({ where: { id } });
     const rating = await this.ratingRepo.findOneBy({ movie, user });
     await this.movieRepo.increment({ id }, 'views', 1);
-    return { movie: movie, user_rating: rating.rating };
+    return { movie: movie, user_rating: rating?.rating };
   }
 
-  getPaged(page: number, col) {
-    if (!(col in ['average_rating', 'views', 'release_date']))
-      throw new BadRequestException();
+  getPaged(page: number, col: PagedMovies) {
     return this.movieRepo.find({
       order: { [col]: 'DESC' },
       skip: page * 20,
@@ -36,10 +41,16 @@ export class MovieService {
     });
   }
 
-  async findOne(options: FindOneOptions<Movie>, repo?: Repository<Movie>) {
-    const movie = await (repo || this.movieRepo).findOne(options);
+  async findOne(options: FindOneOptions<Movie>, manager?: EntityManager) {
+    const repo = manager?.withRepository(this.movieRepo) ?? this.movieRepo;
+    const movie = await repo.findOne(options);
     if (!movie) throw new NotFoundException();
     return movie;
+  }
+
+  async find(options: FindManyOptions<Movie>, manager?: EntityManager) {
+    const repo = manager?.withRepository(this.movieRepo) ?? this.movieRepo;
+    return repo.find(options);
   }
 
   create(createMovieDto: CreateMovieDto) {
@@ -54,7 +65,7 @@ export class MovieService {
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.withRepository(this.movieRepo);
       const movie = {
-        ...(await this.findOne({ where: { id } }, repo)),
+        ...(await this.findOne({ where: { id } }, manager)),
         ...updateMovieDto,
       };
       return repo.save(movie);
@@ -70,7 +81,7 @@ export class MovieService {
       const movieRepo = manager.withRepository(this.movieRepo);
       const movie = await this.findOne(
         { where: { id }, relations: { ratings: true } },
-        movieRepo,
+        manager,
       );
       const ratings = movie.ratings;
       const index = ratings.findIndex(

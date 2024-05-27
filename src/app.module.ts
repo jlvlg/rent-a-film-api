@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt.guard';
 import { MovieModule } from './movie/movie.module';
+import { OrderModule } from './order/order.module';
 import { PoliciesGuard } from './policies-guard/policies-guard.guard';
 
 @Module({
@@ -18,6 +19,7 @@ import { PoliciesGuard } from './policies-guard/policies-guard.guard';
     ConfigModule.forRoot({ isGlobal: true }),
     MovieModule,
     AuthModule,
+    OrderModule,
   ],
   providers: [
     {

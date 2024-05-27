@@ -1,7 +1,19 @@
-import { Body, Controller, Param, ParseIntPipe, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Inject,
+  Param,
+  ParseEnumPipe,
+  ParseIntPipe,
+  Query,
+  forwardRef,
+} from '@nestjs/common';
 import { User } from 'src/auth/entities/user.entity';
 import { GetUser } from 'src/auth/get-user.decorator';
 import { Action } from 'src/casl';
+import { Order } from 'src/order/entities/order.entity';
+import { OrderService } from 'src/order/order.service';
 import {
   PolicyGet,
   PolicyPatch,
@@ -9,6 +21,7 @@ import {
 } from 'src/policies-guard/access.decorator';
 import { Policies } from 'src/policies-guard/policies.decorator';
 import { CreateMovieDto } from './dto/create-movie.dto';
+import { PagedMovies } from './dto/paged-movies.enum';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { Movie } from './entities/movie.entity';
 import { Rating } from './entities/rating.entity';
@@ -16,7 +29,11 @@ import { MovieService } from './movie.service';
 
 @Controller('movies')
 export class MovieController {
-  constructor(private readonly movieService: MovieService) {}
+  constructor(
+    private readonly movieService: MovieService,
+    @Inject(forwardRef(() => OrderService))
+    private readonly orderService: OrderService,
+  ) {}
 
   @PolicyGet(Movie)
   getOneById(@Query('id') id: string, @GetUser() user: User) {
@@ -25,8 +42,8 @@ export class MovieController {
 
   @PolicyGet(Movie, 'paged')
   getPaged(
-    @Query('page', ParseIntPipe) page: number,
-    @Query('col') col: string,
+    @Query('page', new DefaultValuePipe('0'), ParseIntPipe) page: number,
+    @Query('col', new ParseEnumPipe(PagedMovies)) col: PagedMovies,
   ) {
     return this.movieService.getPaged(page, col);
   }
@@ -49,5 +66,10 @@ export class MovieController {
     @GetUser() user: User,
   ) {
     return this.movieService.rate(id, rating, user);
+  }
+
+  @PolicyGet(Order, 'can_watch')
+  canWatchMovie(@Query('id') id: string, @GetUser() user: User) {
+    return this.orderService.canWatchMovie(id, user);
   }
 }
